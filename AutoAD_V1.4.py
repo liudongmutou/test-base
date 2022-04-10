@@ -3,7 +3,8 @@
 
 #---------------------------------------------------一. 导入开源模块-------------------------------------------------
 #python2的py文件里面写中文，则必须要添加第1行的声明文件编码的注释
-import os  # 获取文件路径需要这个模块
+import os
+from matplotlib.font_manager import FontProperties  # 获取文件路径需要这个模块
 import openpyxl  # 写xlsx文件需要的模块
 from openpyxl.styles import PatternFill
 import math   #因为广告算法中需要用到e的相关计算，所以因为数学库
@@ -268,7 +269,7 @@ def AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChg
             BidAvg, fille = AD_BidAvgAlg(Clicks_14, Clicks_30, Clicks_60, BidNew_14, BidNew_30, BidNew_60, CPC_14)
 
             BidChgList[src_head] = BidAvg - CPC_14
-            BidOldList[src_head] = src_ws_14.cell(row=src_head,column=22)
+            BidOldList[src_head] = src_ws_14.cell(row=src_head,column=22).value
             BidAvgList[src_head] = BidAvg
             src_ws_14.cell(row=src_head,column=2).fill = fille
             src_ws_14.cell(row=src_head, column=20).value = round(BidAvg,2)
@@ -281,99 +282,102 @@ def AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChg
 
 # 函数，画图模块
 def AD_PlotResult(row, BidOldList, BidAvgList, BidChgList):
-
     list = [i for i in range(row)]
-    plt.title('每行商品BigAvg相比CPC调整情况')
+    plt.title('BigAvg-CPC ChangeFlow')
     # 设置坐标轴
-    plt.xlabel('行号')
+    plt.xlabel('excel中行号')
     plt.ylabel('BidAvg-CPC_14')
     # 设置坐标轴范围
-    plt.xticks([0,row])
-    plt.yticks([-1,6])
+    # plt.xticks([0,row])
+    plt.xlim(0,row)
+    plt.ylim(-1,1)
+    # plt.yticks([-1,6])
     # 画两条虚线
-    plt.hlines(1,0,row, colors='r', linestyle='--')
-    plt.hlines(-1,0,row, colors='g',linestyle='--')
-    plt.scatter(x= list, y=BidOldList, marker='X', c=BidOldList, cmap='coolwarm')
-    plt.scatter(x= list, y=BidAvgList, marker='o', c=BidAvgList, cmap='coolwarm')
-    plt.scatter(x= list, y=BidChgList, marker='*', c=BidChgList, cmap='coolwarm')
-    plt.savefig('./Bid变化图.png')
+    plt.grid()
+    plt.hlines(0.5,0,row, colors='g', linestyle='--')
+    plt.hlines(0,0,row, colors='r', linestyle='--')
+    plt.hlines(-0.5,0,row, colors='g',linestyle='--')
+    # plt.scatter(x= list, y=BidOldList, marker='X', c='r', s=20)
+    # plt.scatter(x= list, y=BidAvgList, marker='o', c='g', s=20)
+    plt.scatter(x= list, y=BidChgList, marker='*', c='y', s=20)
+    plt.savefig(outputDir+ '/' +'Bid变化图.png')
     plt.show()
 
 #------------------------------------------------------- 3 Main函数-------------------------------------------------------
 
 if __name__ == '__main__':    
 
-    # #--------------------------------一. 获得待处理的目标文件目录------------------------
-    # # 获取python脚本文件所在绝对路径
-    # pyFilePath = os.path.abspath(__file__)    
-    # # 获取python脚本文件所在目录
-    # pyFileDir = os.path.dirname(pyFilePath)   
-    # print(pyFileDir, pyFilePath)  
-    # # 当有多个文件夹下数据需要处理时，可通过此命令选择待处理文件夹
-    # processingDir = input("please enter your target folder: ")
-    # print('-----***-----\n')
-    # filesDir = pyFileDir+'./'+processingDir
-    # # 打印所有目标文件
-    # filesArray = os.listdir(processingDir)    
-    # print('All the files are:\n', filesArray)
-    # print('\n-----***-----\n')
-    # # 创建输出文件夹及目录
-    # outputDir = filesDir                      
-    # print('输出文件目录:', outputDir)
-    # # 获取输出目录下所有的excel表
-    # file_list = os.listdir(outputDir)         
-    # print('-----***-----\n')
+    #--------------------------------一. 获得待处理的目标文件目录------------------------
+    # 获取python脚本文件所在绝对路径
+    pyFilePath = os.path.abspath(__file__)
+    # 获取python脚本文件所在目录
+    pyFileDir = os.path.dirname(pyFilePath)
+    print(pyFileDir, pyFilePath)  
+    # 当有多个文件夹下数据需要处理时，可通过此命令选择待处理文件夹
+    processingDir = input("please enter your target folder: ")
+    print('-----***-----\n')
+    filesDir = pyFileDir+'./'+processingDir
+    # 打印所有目标文件
+    filesArray = os.listdir(processingDir)
+    print('All the files are:\n', filesArray)
+    print('\n-----***-----\n')
+    # 创建输出文件夹及目录
+    outputDir = filesDir                      
+    print('输出文件目录:', outputDir)
+    # 获取输出目录下所有的excel表
+    file_list = os.listdir(outputDir)         
+    print('-----***-----\n')
 
-    # #---------------------------二. 功能实现, 之计算每个excel里BidNew---------------------
-    # with open(outputDir + "_calBidNewlog.txt","w") as print_log:
-    #     for i in range(3):
-    #         inputfile = input("input 14 or 30 or 60: ")
-    #         fileIndex = AD_ExchangeInput2FileIndex(inputfile)
-    #         file_path = outputDir + '/' + file_list[fileIndex]
-    #         print(file_path, '\n')
-    #         src_head = 1
-    #         # 打开待处理文件
-    #         src_wb = openpyxl.load_workbook(file_path)
-    #         src_ws = src_wb['Sponsored Products Campaigns']
-    #         # 计算每个文件里所有BidNew
-    #         AD_BidNewProc(src_head, src_ws, print_log)
-    #         # 保存文件
-    #         src_wb.save(file_path)
-    #         print(file_path ," 计算完成\n")
-    #     print('-------------all file cal BidNew finished-----------\n')
-    #     print('\n----------------------end------------------------\n', file=print_log)
-    # print_log.close
+    #---------------------------二. 功能实现, 之计算每个excel里BidNew---------------------
+    with open(outputDir + '/' +"_calBidNewlog.txt","w") as print_log:
+        for i in range(3):
+            inputfile = input("input 14 or 30 or 60: ")
+            fileIndex = AD_ExchangeInput2FileIndex(inputfile)
+            file_path = outputDir + '/' + file_list[fileIndex]
+            print(file_path, '\n')
+            src_head = 1
+            # 打开待处理文件
+            src_wb = openpyxl.load_workbook(file_path)
+            src_ws = src_wb['Sponsored Products Campaigns']
+            # 计算每个文件里所有BidNew
+            AD_BidNewProc(src_head, src_ws, print_log)
+            # 保存文件
+            src_wb.save(file_path)
+            print(file_path ," 计算完成\n")
+        print('-------------all file cal BidNew finished-----------\n')
+        print('\n----------------------end------------------------\n', file=print_log)
+    print_log.close
 
-    # #---------------------------三. 功能实现, 之计算14天excel里BidAvg----------------------
-    # src_wb_14= openpyxl.load_workbook(outputDir + '/' +'14.xlsx')
-    # src_wb_30= openpyxl.load_workbook(outputDir + '/' +'30.xlsx')
-    # src_wb_60= openpyxl.load_workbook(outputDir + '/' +'60.xlsx')        
-    # src_ws_14 = src_wb_14['Sponsored Products Campaigns']
-    # src_ws_30 = src_wb_30['Sponsored Products Campaigns']
-    # src_ws_60 = src_wb_60['Sponsored Products Campaigns']
-    # # 插入BidAvg的列
-    # src_ws_14.insert_cols(20,1)
-    # src_ws_14.cell(row=1, column=20).value ='BidAvg'
+    #---------------------------三. 功能实现, 之计算14天excel里BidAvg----------------------
+    src_wb_14= openpyxl.load_workbook(outputDir + '/' +'14.xlsx')
+    src_wb_30= openpyxl.load_workbook(outputDir + '/' +'30.xlsx')
+    src_wb_60= openpyxl.load_workbook(outputDir + '/' +'60.xlsx')        
+    src_ws_14 = src_wb_14['Sponsored Products Campaigns']
+    src_ws_30 = src_wb_30['Sponsored Products Campaigns']
+    src_ws_60 = src_wb_60['Sponsored Products Campaigns']
+    # 插入BidAvg的列
+    src_ws_14.insert_cols(20,1)
+    src_ws_14.cell(row=1, column=20).value ='BidAvg'
     
-    BidChgList = [5 for i in range(100)]
-    BidAvgList = [5 for i in range(100)]
-    BidOldList = [5 for i in range(100)]
-    # file_path = outputDir + '/' +'总结.xlsx'
-    # #记录打印日志
-    # with open(outputDir + "_calBidAvglog.txt","w") as print_log:
-    #     for row in range(2, src_ws_14.max_row+1):
-    #         src_head=src_head+1
-    #         # 计算所有BidAvg
-    #         search_flag = src_ws_14.cell(row=src_head, column=2).value
-    #         AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChgList, BidOldList, BidAvgList, print_log)
+    BidChgList = [0 for i in range(src_ws_14.max_row+2)]
+    BidAvgList = [0 for i in range(src_ws_14.max_row+2)]
+    BidOldList = [0 for i in range(src_ws_14.max_row+2)]
+    file_path = outputDir + '/' +'总结.xlsx'
+    #记录打印日志
+    with open(outputDir + '/' +"_calBidAvglog.txt","w") as print_log:
+        for row in range(2, src_ws_14.max_row+1):
+            src_head=src_head+1
+            # 计算所有BidAvg
+            search_flag = src_ws_14.cell(row=src_head, column=2).value
+            AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChgList, BidOldList, BidAvgList, print_log)
        
-    #     print('\n----------------------end------------------------\n', file=print_log)
-    # print_log.close
+        print('\n----------------------end------------------------\n', file=print_log)
+    print_log.close
 
-    # src_wb_14.save(file_path)
-    # print('-----***----\n')
+    src_wb_14.save(file_path)
+    print('-----***----\n')
     
-    AD_PlotResult(100, BidOldList, BidAvgList, BidChgList)
+    AD_PlotResult(src_ws_14.max_row+2, BidOldList, BidAvgList, BidChgList)
 
 
 
