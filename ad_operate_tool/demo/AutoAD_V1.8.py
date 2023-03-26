@@ -3,15 +3,109 @@
 
 #---------------------------------------------------一. 导入开源模块-------------------------------------------------
 #python2的py文件里面写中文，则必须要添加第1行的声明文件编码的注释
-from base64 import encode
 import os
 # from matplotlib.font_manager import FontProperties  # 获取文件路径需要这个模块
 import openpyxl  # 写xlsx文件需要的模块
 from openpyxl.styles import PatternFill
+import pandas as pd
 import math   #因为广告算法中需要用到e的相关计算，所以因为数学库
 import matplotlib.pyplot as plt
 import shutil
 import warnings
+from multiprocessing import Pool
+from dataclasses import dataclass
+from typing import Dict, List, Any
+import loggging
+
+# 函数，BidNew处理模块，处理每行
+def AD_DataProc4EachLine(file, src_head, search_flag, src_ws):
+    # 筛选Product Targeting和Keyword的行
+    if search_flag == 'Product Targeting' or search_flag == 'Keyword':
+        BidOld = src_ws.cell(row=src_head, column=21).value
+        Keyword_Id = src_ws.cell(row=src_head, column=8).value
+        Product_Id = src_ws.cell(row=src_head, column=9).value
+        # 如果Bid为空则标记红色出来并退出ss
+        if BidOld =="" or BidOld is None:
+            fille = PatternFill('solid',fgColor="00FF0000") #标记为红色
+            src_ws.cell(row=src_head, column=2).fill = fille
+            src_ws.cell(row=src_head, column=3).value = 'BidOld是空'
+            loggging.info(file,"line", src_head,"BidOld is None, ", "Keyword_Id:", Keyword_Id, "Product_Id:")
+            return
+        else:
+            # 获得格式化后的源数据
+            BidOld, Acos, Clicks, Unit, CPC = AD_FmtSrcData(src_head, src_ws)
+            src_ws.cell(row=src_head, column=20).value = BidOld
+            # 计算BidNew
+            BidNew = AD_BidNewAlg(BidOld, Acos, Clicks, Unit, CPC)
+        # 打印最终结果
+        loggging.info('\n')
+        loggging.info(file,'line', src_head,' < Keyword_Id',Keyword_Id,'> <','Product_Id',Product_Id,'>', \
+            '<upper bound',round(UP_BID*BidOld,2),'> <','lower bound',round(DOWN_BID*BidOld,2),'>')
+        loggging.info(file,'line', src_head,'final data: ',"BidOld",BidOld,", BidNew",BidNew,", Acos",Acos,", Clicks",Clicks,\
+                ", Unit",Unit,", CPC",CPC)
+        return BidNew
+    else:
+        loggging.info(file,'line', src_head,"is not 'Product Targeting' or 'Keyword', ", "search_flag:", search_flag)
+        return
+
+@dataclass
+class fileContent:
+    name:str
+    wb:Dict
+    ws:Dict
+
+    @classmethod
+    def loadFile(self, fileName) -> List['fileContent']:
+        absPath = os.path.abspath(fileName)
+        src_wb = openpyxl.load_workbook(absPath)
+        src_ws = src_wb['Sponsored Products Campaigns']
+        file = fileContent(
+            fileName,
+            src_wb,
+            src_ws
+        )
+    return file
+
+    # 函数，BidNew处理模块，处理每个文件
+    def AD_BidNewProc(file, targetfile->'fileContent'):
+        #---------------------------------- 2.1 打开文件---------------------------------------
+        src_wb = targetfile.wb
+        src_ws = targetfile.ws
+        src_ws.insert_cols(20, 1)
+        src_ws.cell(row=1, column=20).value = 'BidNew'
+        # 检查行数，以及下面的列号取的对不对
+        loggging.info("总行数 src_ws.max_row ", src_ws.max_row)
+        if ("Bid" != src_ws.cell(row=1, column=21).value) or\
+           ("Keyword Id (Read only)" != src_ws.cell(row=1, column=8).value) or\
+           ("Product Targeting Id (Read only)" != src_ws.cell(row=1, column=9).value) or\
+           ("Clicks" != src_ws.cell(row=1, column=28+1).value) or\
+           ("Units" != src_ws.cell(row=1, column=33+1).value) or\
+           ("Acos" != src_ws.cell(row=1, column=35+1).value) or\
+           ("CPC" != src_ws.cell(row=1, column=36+1).value):
+
+            print("列号计算错误")
+            print("Bid is ", src_ws.cell(row=1, column=21).value)
+            print("Keyword_Id ", src_ws.cell(row=1, column=8).value)
+            print("Product_Id ", src_ws.cell(row=1, column=9).value)
+            print("Clicks ", src_ws.cell(row=1, column=28+1).value)
+            print("Unit ", src_ws.cell(row=1, column=33+1).value)
+            print("AcosStr ", src_ws.cell(row=1, column=35+1).value)
+            print("CPC ", src_ws.cell(row=1, column=36+1).value)
+            src_wb.save(file_path)
+            return -1
+        else:
+            # 在日志文件中打印计算公式
+            AD_BidNewFormularPrint(print_log)
+            """ for循环可优化 """
+            # 循环处理每行
+            for row in range(2, src_ws.max_row+1):
+                # src_head标记for循环到的当前行数
+                src_head = src_head + 1
+                search_flag = src_ws.cell(row=src_head, column=2).value
+                BidNew = AD_DataProc4EachLine(file, src_head, search_flag, src_ws)
+                src_ws.cell(row=src_head, column=20).value = BidNew
+        src_wb.save(file_path)
+        return
 
 warnings.filterwarnings('ignore')
 #全局变量定义和声明
@@ -22,6 +116,12 @@ DOWN_BID = 0.5 # 对BidNew/CPC比例进行下限限制
 rBidCpc = 1.1   # 因为Bid可能有人会在后台直接修改，所以算新bid的时候用的是旧cpc而不是旧bid。但是cpc往往比bid小一点，所以要乘以一个放大系数。
 Price = 12.6
 Clicks_Base = 14
+
+def initialize_logger() -> None:
+    logging.basicConfig(format="[%(levelname-8s] %(asctime)s %(message)s",
+                        level=loggging.INFO,
+                        datefmt="%H:%M:%S"
+                        )
 
 #----------------------------------------------三. 功能实现，之计算每个excel里BidNew-------------------------------------------------
 # 函数，将文本中的百分数转换为小数
@@ -135,73 +235,6 @@ def AD_BidNewFormularPrint(print_log):
     print(string, file=print_log)
     print("\n********************************************************************", file=print_log)
 
-# 函数，BidNew处理模块，处理每行
-def AD_DataProc4EachLine(file, src_head, search_flag, src_ws, print_log):
-    # 筛选Product Targeting和Keyword的行
-    if search_flag == 'Product Targeting' or search_flag == 'Keyword':            
-        BidOld = src_ws.cell(row=src_head, column=21).value
-        Keyword_Id = src_ws.cell(row=src_head, column=8).value
-        Product_Id = src_ws.cell(row=src_head, column=9).value                               
-        # 如果Bid为空则标记红色出来并退出ss
-        if BidOld =="" or BidOld is None:
-            fille = PatternFill('solid',fgColor="00FF0000") #标记为红色
-            src_ws.cell(row=src_head, column=2).fill = fille
-            src_ws.cell(row=src_head, column=3).value = 'BidOld是空'
-            print(file,"line", src_head,"BidOld is None, ", "Keyword_Id:", Keyword_Id, "Product_Id:", Product_Id, file = print_log)
-            return
-        else:
-            # 获得格式化后的源数据
-            BidOld, Acos, Clicks, Unit, CPC = AD_FmtSrcData(src_head, src_ws)
-            src_ws.cell(row=src_head, column=20).value = BidOld
-            # 计算BidNew
-            BidNew = AD_BidNewAlg(BidOld, Acos, Clicks, Unit, CPC)                        
-        # 打印最终结果
-        print('\n',file = print_log)
-        print(file,'line', src_head,' < Keyword_Id',Keyword_Id,'> <','Product_Id',Product_Id,'>', \
-            '<upper bound',round(UP_BID*BidOld,2),'> <','lower bound',round(DOWN_BID*BidOld,2),'>', file = print_log)
-        print(file,'line', src_head,'final data: ',"BidOld",BidOld,", BidNew",BidNew,", Acos",Acos,", Clicks",Clicks,\
-                ", Unit",Unit,", CPC",CPC,'\n', file = print_log)
-        return BidNew
-    else:
-        print(file,'line', src_head,"is not 'Product Targeting' or 'Keyword', ", "search_flag:", search_flag, file=print_log)
-        return
-
-# 函数，BidNew处理模块，处理每个文件
-def AD_BidNewProc(file, src_head, src_ws, print_log):
-    #---------------------------------- 2.1 打开文件---------------------------------------
-    src_ws.insert_cols(20, 1)
-    src_ws.cell(row=1, column=20).value = 'BidNew'
-    # 检查行数，以及下面的列号取的对不对
-    print("总行数 src_ws.max_row ", src_ws.max_row)
-    if ("Bid" != src_ws.cell(row=1, column=21).value) or\
-       ("Keyword Id (Read only)" != src_ws.cell(row=1, column=8).value) or\
-       ("Product Targeting Id (Read only)" != src_ws.cell(row=1, column=9).value) or\
-       ("Clicks" != src_ws.cell(row=1, column=28+1).value) or\
-       ("Units" != src_ws.cell(row=1, column=33+1).value) or\
-       ("Acos" != src_ws.cell(row=1, column=35+1).value) or\
-       ("CPC" != src_ws.cell(row=1, column=36+1).value):        
-
-        print("列号计算错误")
-        print("Bid is ", src_ws.cell(row=1, column=21).value)
-        print("Keyword_Id ", src_ws.cell(row=1, column=8).value)
-        print("Product_Id ", src_ws.cell(row=1, column=9).value)
-        print("Clicks ", src_ws.cell(row=1, column=28+1).value)
-        print("Unit ", src_ws.cell(row=1, column=33+1).value)
-        print("AcosStr ", src_ws.cell(row=1, column=35+1).value)
-        print("CPC ", src_ws.cell(row=1, column=36+1).value)
-        return -1
-    else:            
-        # 在日志文件中打印计算公式
-        AD_BidNewFormularPrint(print_log)
-        """ for循环可优化 """
-        # 循环处理每行
-        for row in range(2, src_ws.max_row+1):
-            # src_head标记for循环到的当前行数
-            src_head = src_head + 1
-            search_flag = src_ws.cell(row=src_head, column=2).value
-            BidNew = AD_DataProc4EachLine(file, src_head, search_flag, src_ws, print_log)
-            src_ws.cell(row=src_head, column=20).value = BidNew
-        return 0
 #--------------------------------------四. 功能实现之计算14天excel里BidAvg---------------------------------
 print('\n-----***-----\n')
 print('功能实现之计算14天excel里BidAvg\n')
@@ -477,41 +510,15 @@ if __name__ == '__main__':
     print('-----------------------------***************-----------------------')
 
     #---------------------------二. 功能实现, 之计算每个excel里BidNew---------------------
-    with open(outputDir + '/' +"calBidNewlog.txt","w", encoding='utf-8') as print_log:
-        """ 三个文件比较独立，可以并行加速 """
-        for i in range(3):
-            # inputfile = input("input 14 or 30 or 60: ")
-            # fileIndex = AD_ExchangeInput2FileIndex(inputfile)
-            fileIndex = i
-            file = file_list[fileIndex]
-            file_path = outputDir + '/' + file
-            src_head = 1
-            # 打开待处理文件
-            src_wb = openpyxl.load_workbook(file_path)
-            src_ws = src_wb['Sponsored Products Campaigns']
-            # 计算每个文件里所有BidNew
-            ret = AD_BidNewProc(file, src_head, src_ws, print_log)
-            if ret != 0:
-                print("error!!!")
-                break
-            # 打印处理进度
-            print((i+1)*5,'%')
-            # 保存文件
-            if (i==0):
-                src_wb_14 = src_wb
-                src_ws_14 = src_ws
-            if (i==1):
-                src_wb_30 = src_wb
-                src_ws_30 = src_ws
-            if (i==2):
-                src_wb_60 = src_wb
-                src_ws_60 = src_ws
-            src_wb.save(file_path)
-            print(file_path ," 计算完成")
-
-        print('-------------all file cal BidNew finished-----------')
-        print('\n----------------------end------------------------\n', file=print_log)
-    print_log.close
+    # with open(outputDir + '/' +"calBidNewlog.txt","w", encoding='utf-8') as print_log:
+    """ 三个文件比较独立，可以并行加速 """
+    p = Pool(3)
+    sorted_file_list = sorted(file_list)
+    targetfileList = p.map(fileContent.loadFile, sorted_file_list)
+    p.map(fileContent.AD_BidNewProc, targetfileList)
+    print(file_path ," 计算完成")
+    print('-------------all file cal BidNew finished-----------')
+    # print_log.close
     #---------------------------三. 功能实现, 之计算14天excel里BidAvg----------------------
     # src_wb_14= openpyxl.load_workbook(outputDir + '/' +'14Days.xlsx')
     # src_wb_30= openpyxl.load_workbook(outputDir + '/' +'30Days.xlsx')
@@ -519,7 +526,11 @@ if __name__ == '__main__':
     # src_ws_14 = src_wb_14['Sponsored Products Campaigns']
     # src_ws_30 = src_wb_30['Sponsored Products Campaigns']
     # src_ws_60 = src_wb_60['Sponsored Products Campaigns']
+    dataFrameFileList = []
+    for file in  outputDir:
+        dataFrameFileList.append(pd.read_excel(file, sheet_name = 'Sponsored Products Campaigns'))
     # 插入BidAvg的列
+    dataFrameFileList[0].
     src_ws_14.insert_cols(20,1)
     src_ws_14.cell(row=1, column=20).value ='BidAvg'
     
@@ -536,8 +547,9 @@ if __name__ == '__main__':
          open(outputDir + '/' +"finalReport.txt","w",encoding='utf-8') as printfinal:
         AD_BidAvgFormularPrint(print_log)
         src_head = 2
-        for row in range(2, src_ws_14.max_row+1):
+        for rowline in src_ws_14.rows:
             src_head=src_head+1
+            src_head = rowline.row
             # 显示处理进度
             if (src_head%100 == 0):
                 tmp = 20 + 100*src_head/src_ws_14.max_row
@@ -546,7 +558,18 @@ if __name__ == '__main__':
             # 计算所有BidAvg
             search_flag = src_ws_14.cell(row=src_head, column=2).value
             AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChgList, BidChgSatdandOkList, BidChgAcosAll0List, BidOldList, BidAvgList, print_log, printfinal)
-       
+
+        # for row in range(2, src_ws_14.max_row+1):
+        #     src_head=src_head+1
+        #     # 显示处理进度
+        #     if (src_head%100 == 0):
+        #         tmp = 20 + 100*src_head/src_ws_14.max_row
+        #         if(tmp%100>=20):
+        #             print(round(tmp) %100,'%')
+        #     # 计算所有BidAvg
+        #     search_flag = src_ws_14.cell(row=src_head, column=2).value
+        #     AD_BidAvgProc(src_head, search_flag, src_ws_14, src_ws_30, src_ws_60, BidChgList, BidChgSatdandOkList, BidChgAcosAll0List, BidOldList, BidAvgList, print_log, printfinal)
+        #
         print('\n----------------------end------------------------\n', file=print_log)
     # AD_PlotResult(src_ws_14.max_row+2, BidOldList, BidAvgList, BidChgList)
     AD_PlotResult(src_ws_14.max_row+2, BidChgSatdandOkList, "BidChgSatdandOkList")
