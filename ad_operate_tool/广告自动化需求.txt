@@ -1,0 +1,31 @@
+req1 
+把BidAvg 和 calBidNewlog数据整合 
+
+req2 
+在bidAvg那行添加（Keyword Text 和 Match Type） 或 （Product Targeting Expression）
+在bidAvg那行添加 Campaign Name (Informational only) 和 Ad Group Name (Informational only)
+
+req3
+处理分两步：
+第一步不生成excel，只生成Log
+然后我来看log修改bidavg。
+第二步，根据修改过的log再生成excel。
+
+Req4
+在CPC之后增加spend
+bidnew限制增益为1.5倍
+Req5
+即使BidOld是空，也要打印req1，2，4的内容，但是不用计算BidNew
+把rBidCpc改为1.1，如果乘以rBidCpc前的bidnew小于cpc，而乘以rBidCpc后的bidnew大于cpc，则bidnew=cpc
+如果Unit30=Unit14,则Weight14=0
+如果Unite60=Unit30,则Weight30=Weight14=0
+
+需要把clissum=0的信息也列全
+需要把none的信息也列全
+
+
+
+遗留问题
+1.网页有些bid是有的，但是excel里面没有bid，这是什么原因？
+2.BidOld is None的行是否是应该改
+3.为什么line71是深绿色？？
