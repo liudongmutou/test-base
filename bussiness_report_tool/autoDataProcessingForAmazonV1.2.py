@@ -205,7 +205,7 @@ def business_combileXlsx(outputDir, filesDir, processingDir):
     # --------3.3 循环依次读取待合并的工作表
     for file in file_list:
         file_path = outputDir + file
-        print(file_path)
+        # print(file_path)
         # 获得待合并表的表名
         sheet_name = file.split('/')[-1].split('.')[0]
         # print(sheet_name)
@@ -311,7 +311,7 @@ def business_getTargetFileList(pyFilePath, pyFileDir):
     for file in tmpList:
         retFile = '汇总报告' + file + '.xlsx'
         if os.path.exists(retFile):
-            print("skip")
+            print("处理过了，skip")
         else:
             folderList.append(file)
     return folderList
@@ -350,7 +350,7 @@ def main():
     else:
         print("未处理文件夹:",folderList)
     # --------1.1 模式1：批量完所有文件夹，模式2：处理指定输入文件夹（默认无输入是运行模式1）
-    processingDir = input("输入待处理文件夹（无输入：代表默认处理完所有文件夹）")
+    processingDir = input("请输入待处理文件夹（无输入会处理完所有文件夹）：")
     if processingDir == "":
         for i in range(len(folderList)):
             # #----------- 1.1.1 获得待处理的目标文件目录
