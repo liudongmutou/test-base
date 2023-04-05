@@ -226,7 +226,7 @@ def business_combileXlsx(outputDir, filesDir, processingDir):
     result[result.sheetnames[4]].title = '退货报告(自发货)'
     result.save(filesDir + './临时汇总报告' + processingDir + '.xlsx')
 
-    print('-----***_---\n')
+    print('-----***----\n')
     print('处理完成，临时汇总报告' + processingDir + '.xlsx已生成')
     return
 
@@ -245,21 +245,21 @@ def business_SwitchFile2Xlsx(pyFileDir, outputDir, filesDir, filesArray):
 
 # --------------------------------------三. 功能实现之覆盖汇总报告模板得到最终汇总报告---------------------------------
 def business_GeneratefinalFile(filesDir, processingDir, pyFileDir, theWeek, theYear, theMonth):
-    print('-----***_---\n')
+    # print('-----***_---\n')
     src_wb = openpyxl.load_workbook(filesDir + './临时汇总报告' + processingDir + '.xlsx')
     dst_wb = openpyxl.load_workbook(pyFileDir + './' + '汇总报告_模板.xlsx')
 
     src_sheets = src_wb.sheetnames
     dst_sheets = dst_wb.sheetnames
-    print('源文件工作表和目标文件工作表')
-    print(src_sheets)
-    print(dst_sheets)
+    # print('源文件工作表和目标文件工作表')
+    # print(src_sheets)
+    # print(dst_sheets)
     print('-----***_---\n')
 
     for i in range(1, len(src_sheets)):
         src_ws = src_wb[src_sheets[i]]
         dst_ws = dst_wb[dst_sheets[i]]
-        print('从源' + src_ws.title + '覆盖到目的' + dst_ws.title)
+        # print('从源' + src_ws.title + '覆盖到目的' + dst_ws.title)
         src_head = 0
         if dst_ws.title == '退货报告(FBA)' or dst_ws.title == '退货报告(自发货)':
             dst_head = 0
@@ -317,7 +317,7 @@ def business_getTargetFileList(pyFilePath, pyFileDir):
     return folderList
 
 
-def business_processEntry(processingDir, pyFileDir):
+def business_processEntry(processingDir, pyFileDir, totalPercent):
     # ----------------------------------------二. 功能实现之获得转换格式后的临时汇总报告-----------------------------------
     theWeek = processingDir[2:processingDir.find('_DE')]
     filesDir = os.path.join(pyFileDir, processingDir)
@@ -328,11 +328,12 @@ def business_processEntry(processingDir, pyFileDir):
     mkdir(outputDir)
     # --2. 文件格式统一转换为xlsx文件格式
     theYear, theMonth = business_SwitchFile2Xlsx(pyFileDir, outputDir, filesDir, filesArray)
+
     # --3,合并目录下所有workbook到一个汇总的excel workbook-----------------
     business_combileXlsx(outputDir, filesDir, processingDir)
     # --------------------------------------三. 功能实现之覆盖汇总报告模板得到最终汇总报告---------------------------------
     business_GeneratefinalFile(filesDir, processingDir, pyFileDir, theWeek, theYear, theMonth)
-
+    print(f"++++++++++++++++++ 进度 {round(totalPercent*100,2)} % ++++++++++++++++++>\n")
 
 def main():
     # 获取python脚本文件所在绝对路径
@@ -355,9 +356,10 @@ def main():
         for i in range(len(folderList)):
             # #----------- 1.1.1 获得待处理的目标文件目录
             processingDir = folderList[i]
-            business_processEntry(processingDir, pyFileDir)
+            business_processEntry(processingDir, pyFileDir, i/len(folderList))
     else:
-        business_processEntry(processingDir, pyFileDir)
+        business_processEntry(processingDir, pyFileDir, 1)
+    print("\n---------- 100% --------->\n")
 
 
 if __name__ == "__main__":
